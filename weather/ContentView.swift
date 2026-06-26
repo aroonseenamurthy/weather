@@ -679,7 +679,7 @@ struct CityPageView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 12) {
-                        ForEach(news.prefix(8)) { article in
+                        ForEach(news.prefix(20)) { article in
                             if let url = URL(string: article.link), !article.link.isEmpty {
                                 Link(destination: url) { newsCard(article: article) }.buttonStyle(.plain)
                             } else {
