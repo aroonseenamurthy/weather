@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to show you relevant ads and help keep the app free.</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>4fzdc2evr5.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>2fnua5tdw4.skadnetwork</string>
+		</dict>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.mootielabs.weather</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>placepulse</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>uber</string>
+		<string>lyft</string>
+		<string>grab</string>
+		<string>olacabs</string>
+		<string>taxify</string>
+		<string>didiglobal</string>
+		<string>cabify</string>
+		<string>indrive</string>
+		<string>freenow</string>
+		<string>gett</string>
+		<string>curb</string>
+		<string>careem</string>
+		<string>comgooglemaps</string>
+		<string>waze</string>
+		<string>here-location</string>
+		<string>mapswithme</string>
+		<string>citymapper</string>
+		<string>osmandmaps</string>
+	</array>
+</dict>
+</plist>

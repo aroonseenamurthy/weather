@@ -2,20 +2,27 @@
 //  weatherApp.swift
 //  weather
 //
-//  Created by Programmer on 6/21/26.
-//
 
 import SwiftUI
-import CoreData
+import GoogleMobileAds
+import AppTrackingTransparency
 
 @main
 struct weatherApp: App {
-    let persistenceController = PersistenceController.shared
+    init() {
+        MobileAds.shared.start(completionHandler: nil)
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .onAppear { requestTracking() }
+        }
+    }
+
+    private func requestTracking() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            ATTrackingManager.requestTrackingAuthorization { _ in }
         }
     }
 }
