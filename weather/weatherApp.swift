@@ -9,13 +9,15 @@ import AppTrackingTransparency
 
 @main
 struct weatherApp: App {
+    @State private var purchaseManager = PurchaseManager()
+
     init() {
         MobileAds.shared.start(completionHandler: nil)
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(purchaseManager: purchaseManager)
                 .onAppear { requestTracking() }
         }
     }

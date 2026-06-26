@@ -1,0 +1,55 @@
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+
+# Build products
+build/
+DerivedData/
+*.o
+*.a
+*.dylib
+*.framework (except committed frameworks)
+
+# Xcode generated
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# CocoaPods (if ever used)
+Pods/
+Podfile.lock
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Simulator
+*.simulator
+
+# Instruments
+*.trace
+
+# Archives
+*.xcarchive
+
+# Crash logs
+*.crash
+
+# Environment / secrets
+.env
+*.pem
+*.key

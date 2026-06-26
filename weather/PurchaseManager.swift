@@ -14,6 +14,7 @@ class PurchaseManager {
     private(set) var isPurchasing = false
     private(set) var isRestoring = false
     var errorMessage: String?
+    private var updatesTask: Task<Void, Never>?
 
     var adsRemoved: Bool = UserDefaults.standard.bool(forKey: "adsRemoved") {
         didSet { UserDefaults.standard.set(adsRemoved, forKey: "adsRemoved") }
@@ -22,7 +23,9 @@ class PurchaseManager {
     init() {
         Task { await loadProduct() }
         Task { await checkExistingPurchases() }
+        updatesTask = Task { await listenForTransactionUpdates() }
     }
+
 
     func loadProduct() async {
         do {
@@ -83,6 +86,16 @@ class PurchaseManager {
             }
         } catch {
             errorMessage = "Restore failed. Please try again."
+        }
+    }
+
+    private func listenForTransactionUpdates() async {
+        for await result in Transaction.updates {
+            if case .verified(let transaction) = result,
+               transaction.productID == Self.productID {
+                adsRemoved = true
+                await transaction.finish()
+            }
         }
     }
 

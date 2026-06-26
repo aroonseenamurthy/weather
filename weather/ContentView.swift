@@ -375,8 +375,8 @@ private let reviewServices: [ReviewService] = [
 // MARK: - Root View
 
 struct ContentView: View {
+    let purchaseManager: PurchaseManager
     @State private var viewModel = WeatherViewModel()
-    @State private var purchaseManager = PurchaseManager()
     @State private var showCityManager = false
     @AppStorage("adsRemoved") private var adsRemoved = false
 
@@ -2253,5 +2253,5 @@ struct CityManagerView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(purchaseManager: PurchaseManager())
 }
