@@ -2,8 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleName</key>
+	<string>Mootielabs Travel</string>
+	<key>CFBundleDisplayName</key>
+	<string>Mootielabs Travel</string>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-2254568018334047~2655746202</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This identifier will be used to show you relevant ads and help keep the app free.</string>
 	<key>SKAdNetworkItems</key>
