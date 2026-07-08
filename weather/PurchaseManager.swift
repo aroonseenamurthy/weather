@@ -42,8 +42,8 @@ class PurchaseManager {
             await loadProduct()
         }
         guard let product else {
-            print("[StoreKit] Product still nil after retry — StoreKit config likely missing from scheme.")
-            errorMessage = "Product not found. Make sure PlacePulse.storekit is selected under Scheme → Run → Options → StoreKit Configuration, then relaunch the app."
+            print("[StoreKit] Product still nil after retry.")
+            errorMessage = "Unable to load purchase. Please check your connection and try again."
             return
         }
         isPurchasing = true

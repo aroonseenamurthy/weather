@@ -388,31 +388,20 @@ class WeatherViewModel {
     }
 
     func fetchWeatherAtCurrentLocation() async {
-        do {
-            var foundLocation: CLLocation?
-            for try await update in CLLocationUpdate.liveUpdates() {
-                if let loc = update.location { foundLocation = loc; break }
-                if update.authorizationDenied { return }
-                break
-            }
-            guard let location = foundLocation else { return }
+        let fetcher = LocationFetcher()
+        guard let location = await fetcher.fetch() else { return }
 
-            guard let reverseRequest = MKReverseGeocodingRequest(location: location) else {
-                addCity(name: "My Location", country: "", lat: location.coordinate.latitude, lon: location.coordinate.longitude)
-                return
-            }
-
-            let mapItems: [MKMapItem] = try await withCheckedThrowingContinuation { cont in
-                reverseRequest.getMapItems { items, error in
-                    if let error { cont.resume(throwing: error) }
-                    else { cont.resume(returning: items ?? []) }
-                }
-            }
-            let item     = mapItems.first
-            let cityName = item?.addressRepresentations?.cityName ?? "My Location"
-            let country  = item?.addressRepresentations?.region?.identifier ?? ""
-            addCity(name: cityName, country: country, lat: location.coordinate.latitude, lon: location.coordinate.longitude)
-        } catch {}
+        guard let request = MKReverseGeocodingRequest(location: location) else {
+            addCity(name: "My Location", country: "",
+                    lat: location.coordinate.latitude, lon: location.coordinate.longitude)
+            return
+        }
+        let items = try? await request.mapItems
+        let item = items?.first
+        let cityName = item?.addressRepresentations?.cityName ?? item?.name ?? "My Location"
+        let country = item?.addressRepresentations?.regionName ?? ""
+        addCity(name: cityName, country: country,
+                lat: location.coordinate.latitude, lon: location.coordinate.longitude)
     }
 
     func fetchWeatherForCity(_ city: SavedCity) async {
@@ -494,15 +483,23 @@ class WeatherViewModel {
         if let w = weatherCache[cityID] {
             saveWidgetCache(weather: w)
         }
+        // News and image are non-MapKit — fire immediately
         Task { await fetchNews(for: cityName, cityID: cityID) }
-        Task { await fetchRestaurants(lat: lat, lon: lon, cityID: cityID) }
-        Task { await fetchHotels(lat: lat, lon: lon, cityID: cityID) }
-        Task { await fetchAttractions(lat: lat, lon: lon, cityID: cityID) }
-        Task { await fetchTransit(lat: lat, lon: lon, cityID: cityID) }
-        Task { await fetchShopping(lat: lat, lon: lon, cityID: cityID) }
-        Task { await fetchSports(lat: lat, lon: lon, cityID: cityID) }
-        Task { await fetchTheaters(lat: lat, lon: lon, cityID: cityID) }
         Task { await fetchCityImage(for: cityName, cityID: cityID) }
+        // MapKit searches batched into 3 groups to avoid rate limiting
+        Task {
+            await fetchRestaurants(lat: lat, lon: lon, cityID: cityID)
+            await fetchAttractions(lat: lat, lon: lon, cityID: cityID)
+        }
+        Task {
+            await fetchHotels(lat: lat, lon: lon, cityID: cityID)
+            await fetchTransit(lat: lat, lon: lon, cityID: cityID)
+        }
+        Task {
+            await fetchShopping(lat: lat, lon: lon, cityID: cityID)
+            await fetchSports(lat: lat, lon: lon, cityID: cityID)
+            await fetchTheaters(lat: lat, lon: lon, cityID: cityID)
+        }
     }
 
     private func fetchRestaurants(lat: Double, lon: Double, cityID: UUID) async {
@@ -990,6 +987,56 @@ class WeatherViewModel {
         case 96: return "Thunderstorm with hail"
         case 99: return "Thunderstorm with heavy hail"
         default: return "Unknown"
+        }
+    }
+}
+
+// MARK: - Location Fetcher
+
+private class LocationFetcher: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var continuation: CheckedContinuation<CLLocation?, Never>?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
+
+    func fetch() async -> CLLocation? {
+        await withCheckedContinuation { cont in
+            continuation = cont
+            switch manager.authorizationStatus {
+            case .authorizedWhenInUse, .authorizedAlways:
+                manager.requestLocation()
+            case .notDetermined:
+                manager.requestWhenInUseAuthorization()
+            default:
+                cont.resume(returning: nil)
+                continuation = nil
+            }
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        continuation?.resume(returning: locations.first)
+        continuation = nil
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        continuation?.resume(returning: nil)
+        continuation = nil
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            manager.requestLocation()
+        case .denied, .restricted:
+            continuation?.resume(returning: nil)
+            continuation = nil
+        default:
+            break
         }
     }
 }
