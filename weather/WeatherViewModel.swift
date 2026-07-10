@@ -366,6 +366,18 @@ class WeatherViewModel {
 
     // MARK: - Fetch
 
+    func fetchWeather(for completion: MKLocalSearchCompletion) async {
+        let request = MKLocalSearch.Request(completion: completion)
+        request.resultTypes = .address
+        guard let item = (try? await MKLocalSearch(request: request).start())?.mapItems.first else { return }
+        addCity(
+            name:    item.addressRepresentations?.cityName ?? item.name ?? completion.title,
+            country: item.addressRepresentations?.regionName ?? "",
+            lat:     item.location.coordinate.latitude,
+            lon:     item.location.coordinate.longitude
+        )
+    }
+
     func fetchWeather(for query: String) async {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
@@ -484,8 +496,8 @@ class WeatherViewModel {
             saveWidgetCache(weather: w)
         }
         // News and image are non-MapKit — fire immediately
-        Task { await fetchNews(for: cityName, cityID: cityID) }
-        Task { await fetchCityImage(for: cityName, cityID: cityID) }
+        Task { await fetchNews(for: cityName, country: country, cityID: cityID) }
+        Task { await fetchCityImage(for: cityName, country: country, cityID: cityID) }
         // MapKit searches batched into 3 groups to avoid rate limiting
         Task {
             await fetchRestaurants(lat: lat, lon: lon, cityID: cityID)
@@ -514,8 +526,8 @@ class WeatherViewModel {
         let drinkPoiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: region)
         drinkPoiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.brewery, .winery, .nightlife])
 
-        var diningItems = (try? await MKLocalSearch(request: diningPoiRequest).start())?.mapItems ?? []
-        var drinkItems  = (try? await MKLocalSearch(request: drinkPoiRequest).start())?.mapItems ?? []
+        var diningItems = await searchItems(MKLocalSearch(request: diningPoiRequest))
+        var drinkItems  = await searchItems(MKLocalSearch(request: drinkPoiRequest))
 
         // Fallback for dining
         if diningItems.isEmpty {
@@ -524,7 +536,7 @@ class WeatherViewModel {
             fallback.region = region
             fallback.resultTypes = .pointOfInterest
             fallback.pointOfInterestFilter = MKPointOfInterestFilter(including: [.restaurant, .cafe, .foodMarket, .bakery])
-            diningItems = (try? await MKLocalSearch(request: fallback).start())?.mapItems ?? []
+            diningItems = await searchItems(MKLocalSearch(request: fallback))
         }
 
         // Fallback for drinks/nightlife
@@ -534,7 +546,7 @@ class WeatherViewModel {
             fallback.region = region
             fallback.resultTypes = .pointOfInterest
             fallback.pointOfInterestFilter = MKPointOfInterestFilter(including: [.brewery, .winery, .nightlife])
-            drinkItems = (try? await MKLocalSearch(request: fallback).start())?.mapItems ?? []
+            drinkItems = await searchItems(MKLocalSearch(request: fallback))
         }
 
         var seen = Set<String>()
@@ -556,7 +568,7 @@ class WeatherViewModel {
         // Primary: POI category search
         let poiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: MKCoordinateRegion(center: center, latitudinalMeters: 10000, longitudinalMeters: 10000))
         poiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.hotel])
-        var items = (try? await MKLocalSearch(request: poiRequest).start())?.mapItems ?? []
+        var items = await searchItems(MKLocalSearch(request: poiRequest))
 
         // Fallback: natural language search when POI data is sparse
         if items.isEmpty {
@@ -565,7 +577,7 @@ class WeatherViewModel {
             fallback.region = MKCoordinateRegion(center: center, latitudinalMeters: 10000, longitudinalMeters: 10000)
             fallback.resultTypes = .pointOfInterest
             fallback.pointOfInterestFilter = MKPointOfInterestFilter(including: [.hotel])
-            items = (try? await MKLocalSearch(request: fallback).start())?.mapItems ?? []
+            items = await searchItems(MKLocalSearch(request: fallback))
         }
 
         var seen = Set<String>()
@@ -591,11 +603,11 @@ class WeatherViewModel {
         let poiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: MKCoordinateRegion(center: center, latitudinalMeters: 10000, longitudinalMeters: 10000))
         poiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.museum, .aquarium, .zoo, .amusementPark, .theater, .park, .nationalPark, .movieTheater])
 
-        async let textResult = MKLocalSearch(request: textRequest).start()
-        async let poiResult  = MKLocalSearch(request: poiRequest).start()
+        async let textSearch = searchItems(MKLocalSearch(request: textRequest))
+        async let poiSearch  = searchItems(MKLocalSearch(request: poiRequest))
 
-        let textItems = (try? await textResult)?.mapItems ?? []
-        let poiItems  = (try? await poiResult)?.mapItems ?? []
+        let textItems = await textSearch
+        let poiItems  = await poiSearch
 
         var seen = Set<String>()
         attractionsCache[cityID] = (textItems + poiItems).enumerated().compactMap { index, item in
@@ -621,8 +633,8 @@ class WeatherViewModel {
         let theaterPoiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: region)
         theaterPoiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.theater])
 
-        var cinemaItems  = (try? await MKLocalSearch(request: cinemaPoiRequest).start())?.mapItems ?? []
-        var theaterItems = (try? await MKLocalSearch(request: theaterPoiRequest).start())?.mapItems ?? []
+        var cinemaItems  = await searchItems(MKLocalSearch(request: cinemaPoiRequest))
+        var theaterItems = await searchItems(MKLocalSearch(request: theaterPoiRequest))
 
         // Fallback for cinemas
         if cinemaItems.isEmpty {
@@ -631,7 +643,7 @@ class WeatherViewModel {
             fallback.region = region
             fallback.resultTypes = .pointOfInterest
             fallback.pointOfInterestFilter = MKPointOfInterestFilter(including: [.movieTheater])
-            cinemaItems = (try? await MKLocalSearch(request: fallback).start())?.mapItems ?? []
+            cinemaItems = await searchItems(MKLocalSearch(request: fallback))
         }
 
         // Fallback for theaters
@@ -641,7 +653,7 @@ class WeatherViewModel {
             fallback.region = region
             fallback.resultTypes = .pointOfInterest
             fallback.pointOfInterestFilter = MKPointOfInterestFilter(including: [.theater])
-            theaterItems = (try? await MKLocalSearch(request: fallback).start())?.mapItems ?? []
+            theaterItems = await searchItems(MKLocalSearch(request: fallback))
         }
 
         let allItems = (cinemaItems + theaterItems).filter { item in
@@ -678,11 +690,11 @@ class WeatherViewModel {
         venueRequest.region = MKCoordinateRegion(center: center, latitudinalMeters: 5000, longitudinalMeters: 5000)
         venueRequest.resultTypes = .pointOfInterest
 
-        async let fitnessResult = MKLocalSearch(request: fitnessRequest).start()
-        async let venueResult   = MKLocalSearch(request: venueRequest).start()
+        async let fitnessSearch = searchItems(MKLocalSearch(request: fitnessRequest))
+        async let venueSearch   = searchItems(MKLocalSearch(request: venueRequest))
 
-        let fitnessItems = (try? await fitnessResult)?.mapItems ?? []
-        let venueItems   = (try? await venueResult)?.mapItems ?? []
+        let fitnessItems = await fitnessSearch
+        let venueItems   = await venueSearch
 
         // Hard distance filter — reject anything MKLocalSearch returned outside the city
         let allItems = (fitnessItems + venueItems).filter { item in
@@ -731,11 +743,11 @@ class WeatherViewModel {
         marketRequest.region = MKCoordinateRegion(center: center, latitudinalMeters: 3000, longitudinalMeters: 3000)
         marketRequest.resultTypes = .pointOfInterest
 
-        async let mallResult   = MKLocalSearch(request: mallRequest).start()
-        async let marketResult = MKLocalSearch(request: marketRequest).start()
+        async let mallSearch   = searchItems(MKLocalSearch(request: mallRequest))
+        async let marketSearch = searchItems(MKLocalSearch(request: marketRequest))
 
-        let mallItems   = (try? await mallResult)?.mapItems ?? []
-        let marketItems = (try? await marketResult)?.mapItems ?? []
+        let mallItems   = await mallSearch
+        let marketItems = await marketSearch
 
         var seen = Set<String>()
         shoppingCache[cityID] = (mallItems + marketItems).enumerated().compactMap { index, item in
@@ -790,8 +802,8 @@ class WeatherViewModel {
         let airportPoiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: airportRegion)
         airportPoiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.airport])
 
-        var stationItems = (try? await MKLocalSearch(request: stationPoiRequest).start())?.mapItems ?? []
-        var airportItems = (try? await MKLocalSearch(request: airportPoiRequest).start())?.mapItems ?? []
+        var stationItems = await searchItems(MKLocalSearch(request: stationPoiRequest))
+        var airportItems = await searchItems(MKLocalSearch(request: airportPoiRequest))
 
         // Fallback for transit stations
         if stationItems.isEmpty {
@@ -800,7 +812,7 @@ class WeatherViewModel {
             fallback.region = stationRegion
             fallback.resultTypes = .pointOfInterest
             fallback.pointOfInterestFilter = MKPointOfInterestFilter(including: [.publicTransport])
-            stationItems = (try? await MKLocalSearch(request: fallback).start())?.mapItems ?? []
+            stationItems = await searchItems(MKLocalSearch(request: fallback))
         }
 
         // Fallback for airports
@@ -810,7 +822,7 @@ class WeatherViewModel {
             fallback.region = airportRegion
             fallback.resultTypes = .pointOfInterest
             fallback.pointOfInterestFilter = MKPointOfInterestFilter(including: [.airport])
-            airportItems = (try? await MKLocalSearch(request: fallback).start())?.mapItems ?? []
+            airportItems = await searchItems(MKLocalSearch(request: fallback))
         }
 
         let combined = Array(stationItems.prefix(12)) + Array(airportItems.prefix(6))
@@ -841,6 +853,17 @@ class WeatherViewModel {
         return "Transit"
     }
 
+    private func searchItems(_ search: MKLocalSearch) async -> [MKMapItem] {
+        let searchTask = Task { try await search.start().mapItems }
+        let timeoutTask = Task<Void, Never> {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            searchTask.cancel()
+        }
+        let result = (try? await searchTask.value) ?? []
+        timeoutTask.cancel()
+        return result
+    }
+
     private func poiCategoryLabel(_ category: MKPointOfInterestCategory?) -> String {
         guard let category else { return "" }
         switch category {
@@ -855,11 +878,12 @@ class WeatherViewModel {
         }
     }
 
-    private func fetchNews(for city: String, cityID: UUID) async {
+    private func fetchNews(for city: String, country: String, cityID: UUID) async {
         loadingNewsCities.insert(cityID)
+        let query = country.isEmpty ? city : "\(city) \(country)"
         var components = URLComponents(string: "https://news.google.com/rss/search")!
         components.queryItems = [
-            URLQueryItem(name: "q",    value: city),
+            URLQueryItem(name: "q",    value: query),
             URLQueryItem(name: "hl",   value: "en-US"),
             URLQueryItem(name: "gl",   value: "US"),
             URLQueryItem(name: "ceid", value: "US:en")
@@ -871,7 +895,7 @@ class WeatherViewModel {
         loadingNewsCities.remove(cityID)
     }
 
-    private func fetchCityImage(for cityName: String, cityID: UUID) async {
+    private func fetchCityImage(for cityName: String, country: String, cityID: UUID) async {
         struct WikiSummary: Decodable {
             struct Image: Decodable { let source: String; let width: Int }
             let thumbnail: Image?
@@ -879,7 +903,8 @@ class WeatherViewModel {
         }
         // Try the exact name first, then "{city} City" as a fallback.
         // This handles "New York" (redirects to the state) → "New York City" (the skyline photo).
-        let candidates = [cityName, "\(cityName) City"]
+        let qualified = country.isEmpty ? nil : "\(cityName), \(country)"
+        let candidates = [cityName, qualified, "\(cityName) City"].compactMap { $0 }
         for candidate in candidates {
             let encoded = candidate.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? candidate
             guard let url = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/\(encoded)"),

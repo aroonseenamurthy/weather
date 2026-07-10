@@ -2194,7 +2194,7 @@ struct CityManagerView: View {
                     searchQuery = ""
                     showSuggestions = false
                     isSearchFocused = false
-                    Task { await viewModel.fetchWeather(for: suggestion.title) }
+                    Task { await viewModel.fetchWeather(for: suggestion) }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "mappin.circle.fill").foregroundColor(.blue).frame(width: 24)
