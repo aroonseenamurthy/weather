@@ -97,7 +97,6 @@ struct WeatherProvider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: WeatherWidgetIntent, in context: Context) async -> WeatherEntry {
-        if let cached = loadCached(for: configuration.city) { return cached }
         return await fetchFromNetwork(city: configuration.city) ?? placeholder(in: context)
     }
 
@@ -292,10 +291,11 @@ struct WeatherWidget: Widget {
     let kind = "WeatherWidget"
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: WeatherWidgetIntent.self, provider: WeatherProvider()) { entry in
-            let encoded = entry.city.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? entry.city
+            let encodedCity    = entry.city.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? entry.city
+            let encodedCountry = entry.country.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? entry.country
             WeatherWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
-                .widgetURL(URL(string: "placepulse://open?city=\(encoded)"))
+                .widgetURL(URL(string: "placepulse://open?city=\(encodedCity)&country=\(encodedCountry)"))
         }
         .configurationDisplayName("Place Pulse")
         .description("Live weather & local info for any place. Long-press to change location.")

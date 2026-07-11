@@ -421,7 +421,9 @@ struct ContentView: View {
                   let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                   let cityParam = components.queryItems?.first(where: { $0.name == "city" })?.value,
                   !cityParam.isEmpty else { return }
-            Task { await viewModel.fetchWeather(for: cityParam) }
+            let countryParam = components.queryItems?.first(where: { $0.name == "country" })?.value ?? ""
+            let query = countryParam.isEmpty ? cityParam : "\(cityParam), \(countryParam)"
+            Task { await viewModel.fetchWeather(for: query) }
         }
     }
 

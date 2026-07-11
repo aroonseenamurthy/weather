@@ -369,7 +369,8 @@ class WeatherViewModel {
     func fetchWeather(for completion: MKLocalSearchCompletion) async {
         let request = MKLocalSearch.Request(completion: completion)
         request.resultTypes = .address
-        guard let item = (try? await MKLocalSearch(request: request).start())?.mapItems.first else { return }
+        let items = await searchItems(MKLocalSearch(request: request))
+        guard let item = items.first else { return }
         addCity(
             name:    item.addressRepresentations?.cityName ?? item.name ?? completion.title,
             country: item.addressRepresentations?.regionName ?? "",
@@ -498,20 +499,14 @@ class WeatherViewModel {
         // News and image are non-MapKit — fire immediately
         Task { await fetchNews(for: cityName, country: country, cityID: cityID) }
         Task { await fetchCityImage(for: cityName, country: country, cityID: cityID) }
-        // MapKit searches batched into 3 groups to avoid rate limiting
-        Task {
-            await fetchRestaurants(lat: lat, lon: lon, cityID: cityID)
-            await fetchAttractions(lat: lat, lon: lon, cityID: cityID)
-        }
-        Task {
-            await fetchHotels(lat: lat, lon: lon, cityID: cityID)
-            await fetchTransit(lat: lat, lon: lon, cityID: cityID)
-        }
-        Task {
-            await fetchShopping(lat: lat, lon: lon, cityID: cityID)
-            await fetchSports(lat: lat, lon: lon, cityID: cityID)
-            await fetchTheaters(lat: lat, lon: lon, cityID: cityID)
-        }
+        // All MapKit fetch functions run independently in parallel
+        Task { await fetchRestaurants(lat: lat, lon: lon, cityID: cityID) }
+        Task { await fetchAttractions(lat: lat, lon: lon, cityID: cityID) }
+        Task { await fetchHotels(lat: lat, lon: lon, cityID: cityID) }
+        Task { await fetchTransit(lat: lat, lon: lon, cityID: cityID) }
+        Task { await fetchShopping(lat: lat, lon: lon, cityID: cityID) }
+        Task { await fetchSports(lat: lat, lon: lon, cityID: cityID) }
+        Task { await fetchTheaters(lat: lat, lon: lon, cityID: cityID) }
     }
 
     private func fetchRestaurants(lat: Double, lon: Double, cityID: UUID) async {
@@ -526,8 +521,10 @@ class WeatherViewModel {
         let drinkPoiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: region)
         drinkPoiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.brewery, .winery, .nightlife])
 
-        var diningItems = await searchItems(MKLocalSearch(request: diningPoiRequest))
-        var drinkItems  = await searchItems(MKLocalSearch(request: drinkPoiRequest))
+        async let diningSearch = searchItems(MKLocalSearch(request: diningPoiRequest))
+        async let drinkSearch  = searchItems(MKLocalSearch(request: drinkPoiRequest))
+        var diningItems = await diningSearch
+        var drinkItems  = await drinkSearch
 
         // Fallback for dining
         if diningItems.isEmpty {
@@ -550,12 +547,13 @@ class WeatherViewModel {
         }
 
         var seen = Set<String>()
-        restaurantsCache[cityID] = (diningItems + drinkItems).enumerated().compactMap { index, item in
+        let newRestaurants = (diningItems + drinkItems).enumerated().compactMap { index, item -> Restaurant? in
             guard let name = item.name, seen.insert(name).inserted else { return nil }
             let cuisine = poiCategoryLabel(item.pointOfInterestCategory)
             let coord   = item.location.coordinate
             return Restaurant(id: index, name: name, cuisine: cuisine, lat: coord.latitude, lon: coord.longitude)
         }
+        if !newRestaurants.isEmpty { restaurantsCache[cityID] = newRestaurants }
 
         loadingRestaurantCities.remove(cityID)
     }
@@ -581,11 +579,12 @@ class WeatherViewModel {
         }
 
         var seen = Set<String>()
-        hotelsCache[cityID] = items.enumerated().compactMap { index, item in
+        let newHotels = items.enumerated().compactMap { index, item -> Hotel? in
             guard let name = item.name, seen.insert(name).inserted else { return nil }
             let coord = item.location.coordinate
             return Hotel(id: index, name: name, lat: coord.latitude, lon: coord.longitude)
         }
+        if !newHotels.isEmpty { hotelsCache[cityID] = newHotels }
 
         loadingHotelCities.remove(cityID)
     }
@@ -610,12 +609,13 @@ class WeatherViewModel {
         let poiItems  = await poiSearch
 
         var seen = Set<String>()
-        attractionsCache[cityID] = (textItems + poiItems).enumerated().compactMap { index, item in
+        let newAttractions = (textItems + poiItems).enumerated().compactMap { index, item -> Attraction? in
             guard let name = item.name, seen.insert(name).inserted else { return nil }
             let category = attractionCategoryLabel(item.pointOfInterestCategory)
             let coord    = item.location.coordinate
             return Attraction(id: index, name: name, category: category, lat: coord.latitude, lon: coord.longitude)
         }
+        if !newAttractions.isEmpty { attractionsCache[cityID] = newAttractions }
 
         loadingAttractionCities.remove(cityID)
     }
@@ -633,8 +633,10 @@ class WeatherViewModel {
         let theaterPoiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: region)
         theaterPoiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.theater])
 
-        var cinemaItems  = await searchItems(MKLocalSearch(request: cinemaPoiRequest))
-        var theaterItems = await searchItems(MKLocalSearch(request: theaterPoiRequest))
+        async let cinemaSearch  = searchItems(MKLocalSearch(request: cinemaPoiRequest))
+        async let theaterSearch = searchItems(MKLocalSearch(request: theaterPoiRequest))
+        var cinemaItems  = await cinemaSearch
+        var theaterItems = await theaterSearch
 
         // Fallback for cinemas
         if cinemaItems.isEmpty {
@@ -663,12 +665,13 @@ class WeatherViewModel {
         }
 
         var seen = Set<String>()
-        theatersCache[cityID] = allItems.enumerated().compactMap { index, item in
+        let newTheaters = allItems.enumerated().compactMap { index, item -> TheaterVenue? in
             guard let name = item.name, seen.insert(name).inserted else { return nil }
             let type  = item.pointOfInterestCategory == .movieTheater ? "Cinema" : "Theatre"
             let coord = item.location.coordinate
             return TheaterVenue(id: index, name: name, type: type, lat: coord.latitude, lon: coord.longitude)
         }
+        if !newTheaters.isEmpty { theatersCache[cityID] = newTheaters }
 
         loadingTheaterCities.remove(cityID)
     }
@@ -704,12 +707,13 @@ class WeatherViewModel {
         }
 
         var seen = Set<String>()
-        sportsCache[cityID] = allItems.enumerated().compactMap { index, item in
+        let newSports = allItems.enumerated().compactMap { index, item -> SportsVenue? in
             guard let name = item.name, seen.insert(name).inserted else { return nil }
             let type  = sportsTypeLabel(item.pointOfInterestCategory, name: name)
             let coord = item.location.coordinate
             return SportsVenue(id: index, name: name, type: type, lat: coord.latitude, lon: coord.longitude)
         }
+        if !newSports.isEmpty { sportsCache[cityID] = newSports }
 
         loadingSportsCities.remove(cityID)
     }
@@ -750,12 +754,13 @@ class WeatherViewModel {
         let marketItems = await marketSearch
 
         var seen = Set<String>()
-        shoppingCache[cityID] = (mallItems + marketItems).enumerated().compactMap { index, item in
+        let newShopping = (mallItems + marketItems).enumerated().compactMap { index, item -> ShoppingSpot? in
             guard let name = item.name, seen.insert(name).inserted else { return nil }
             let type = shopTypeLabel(item.pointOfInterestCategory, name: name)
             let coord = item.location.coordinate
             return ShoppingSpot(id: index, name: name, type: type, lat: coord.latitude, lon: coord.longitude)
         }
+        if !newShopping.isEmpty { shoppingCache[cityID] = newShopping }
 
         loadingShoppingCities.remove(cityID)
     }
@@ -802,8 +807,10 @@ class WeatherViewModel {
         let airportPoiRequest = MKLocalPointsOfInterestRequest(coordinateRegion: airportRegion)
         airportPoiRequest.pointOfInterestFilter = MKPointOfInterestFilter(including: [.airport])
 
-        var stationItems = await searchItems(MKLocalSearch(request: stationPoiRequest))
-        var airportItems = await searchItems(MKLocalSearch(request: airportPoiRequest))
+        async let stationSearch = searchItems(MKLocalSearch(request: stationPoiRequest))
+        async let airportSearch = searchItems(MKLocalSearch(request: airportPoiRequest))
+        var stationItems = await stationSearch
+        var airportItems = await airportSearch
 
         // Fallback for transit stations
         if stationItems.isEmpty {
@@ -826,12 +833,13 @@ class WeatherViewModel {
         }
 
         let combined = Array(stationItems.prefix(12)) + Array(airportItems.prefix(6))
-        transitCache[cityID] = combined.enumerated().compactMap { index, item in
+        let newTransit = combined.enumerated().compactMap { index, item -> TransitHub? in
             guard let name = item.name else { return nil }
             let type  = transitTypeLabel(item.pointOfInterestCategory, name: name)
             let coord = item.location.coordinate
             return TransitHub(id: index, name: name, transitType: type, lat: coord.latitude, lon: coord.longitude)
         }
+        if !newTransit.isEmpty { transitCache[cityID] = newTransit }
 
         loadingTransitCities.remove(cityID)
     }
@@ -853,15 +861,22 @@ class WeatherViewModel {
         return "Transit"
     }
 
-    private func searchItems(_ search: MKLocalSearch) async -> [MKMapItem] {
+    private func searchOnce(_ search: MKLocalSearch) async -> [MKMapItem] {
         let searchTask = Task { try await search.start().mapItems }
         let timeoutTask = Task<Void, Never> {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
             searchTask.cancel()
         }
         let result = (try? await searchTask.value) ?? []
         timeoutTask.cancel()
         return result
+    }
+
+    private func searchItems(_ search: MKLocalSearch) async -> [MKMapItem] {
+        let result = await searchOnce(search)
+        if !result.isEmpty { return result }
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        return await searchOnce(search)
     }
 
     private func poiCategoryLabel(_ category: MKPointOfInterestCategory?) -> String {
