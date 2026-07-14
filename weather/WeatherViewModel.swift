@@ -367,16 +367,22 @@ class WeatherViewModel {
     // MARK: - Fetch
 
     func fetchWeather(for completion: MKLocalSearchCompletion) async {
+        // Primary: resolve via the completion object for precise coordinates
         let request = MKLocalSearch.Request(completion: completion)
         request.resultTypes = .address
         let items = await searchItems(MKLocalSearch(request: request))
-        guard let item = items.first else { return }
-        addCity(
-            name:    item.addressRepresentations?.cityName ?? item.name ?? completion.title,
-            country: item.addressRepresentations?.regionName ?? "",
-            lat:     item.location.coordinate.latitude,
-            lon:     item.location.coordinate.longitude
-        )
+        if let item = items.first {
+            addCity(
+                name:    item.addressRepresentations?.cityName ?? item.name ?? completion.title,
+                country: item.addressRepresentations?.regionName ?? "",
+                lat:     item.location.coordinate.latitude,
+                lon:     item.location.coordinate.longitude
+            )
+            return
+        }
+        // Fallback: geocode using the suggestion text — different MK code path
+        let query = completion.subtitle.isEmpty ? completion.title : "\(completion.title), \(completion.subtitle)"
+        await fetchWeather(for: query)
     }
 
     func fetchWeather(for query: String) async {
