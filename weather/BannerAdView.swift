@@ -7,8 +7,7 @@ import SwiftUI
 import GoogleMobileAds
 
 struct BannerAdView: UIViewRepresentable {
-    // Test ad ID so ads are visible during App Review (swap back to real ID after approval)
-    private let adUnitID = "ca-app-pub-3940256099942544/2934735716"
+    private let adUnitID = "ca-app-pub-2254568018334047/4984763161"
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
