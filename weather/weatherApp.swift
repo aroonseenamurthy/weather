@@ -56,18 +56,31 @@ struct SplashView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 64, weight: .light))
-                    .foregroundColor(.white)
+            VStack(spacing: 0) {
+                Spacer()
 
-                Text("Place Pulse")
-                    .font(.system(size: 36, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
+                VStack(spacing: 16) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 64, weight: .light))
+                        .foregroundColor(.white)
 
-                Text("Discover any city")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundColor(.white.opacity(0.75))
+                    Text("Place Pulse")
+                        .font(.system(size: 36, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+
+                    Text("Discover any city")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.white.opacity(0.75))
+                }
+
+                Spacer()
+
+                Image("nyc_skyline")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .opacity(0.9)
+                    .padding(.bottom, 60)
             }
             .scaleEffect(scale)
             .opacity(opacity)
